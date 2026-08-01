@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.145 0.005 285);
+  --foreground: oklch(0.96 0.003 285);
+  --card: oklch(0.17 0.006 285);
+  --card-foreground: oklch(0.96 0.003 285);
+  --popover: oklch(0.17 0.006 285);
+  --popover-foreground: oklch(0.96 0.003 285);
+  --primary: oklch(0.6 0.24 295);
+  --primary-foreground: oklch(0.99 0.003 285);
+  --secondary: oklch(0.23 0.008 285);
+  --secondary-foreground: oklch(0.96 0.003 285);
+  --muted: oklch(0.23 0.008 285);
+  --muted-foreground: oklch(0.68 0.01 285);
+  --accent: oklch(0.23 0.008 285);
+  --accent-foreground: oklch(0.96 0.003 285);
+  --destructive: oklch(0.63 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 25);
+  --success: oklch(0.72 0.18 150);
+  --success-foreground: oklch(0.15 0.02 150);
+  --warning: oklch(0.8 0.15 80);
+  --warning-foreground: oklch(0.15 0.02 80);
+  --border: oklch(0.27 0.01 285);
+  --input: oklch(0.3 0.01 285);
+  --ring: oklch(0.6 0.24 295);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: oklch(0.145 0.005 285);
+  --foreground: oklch(0.96 0.003 285);
+  --card: oklch(0.17 0.006 285);
+  --card-foreground: oklch(0.96 0.003 285);
+  --popover: oklch(0.17 0.006 285);
+  --popover-foreground: oklch(0.96 0.003 285);
+  --primary: oklch(0.6 0.24 295);
+  --primary-foreground: oklch(0.99 0.003 285);
+  --secondary: oklch(0.23 0.008 285);
+  --secondary-foreground: oklch(0.96 0.003 285);
+  --muted: oklch(0.23 0.008 285);
+  --muted-foreground: oklch(0.68 0.01 285);
+  --accent: oklch(0.23 0.008 285);
+  --accent-foreground: oklch(0.96 0.003 285);
+  --destructive: oklch(0.63 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 25);
+  --success: oklch(0.72 0.18 150);
+  --success-foreground: oklch(0.15 0.02 150);
+  --warning: oklch(0.8 0.15 80);
+  --warning-foreground: oklch(0.15 0.02 80);
+  --border: oklch(0.27 0.01 285);
+  --input: oklch(0.3 0.01 285);
+  --ring: oklch(0.6 0.24 295);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.32 0.01 285);
+    border-radius: 9999px;
+    border: 2px solid var(--background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0.015 285);
+  }
+}
+
+@property --preset-glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@layer utilities {
+  .preset-glow {
+    border-color: var(--primary);
+  }
+
+  .preset-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from var(--preset-glow-angle),
+      transparent 0%,
+      transparent 30%,
+      color-mix(in srgb, var(--primary) 90%, white) 50%,
+      transparent 70%,
+      transparent 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: preset-glow-rotate 1.4s linear infinite;
+    pointer-events: none;
+  }
+
+  .preset-glow > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes preset-glow-rotate {
+    to {
+      --preset-glow-angle: 360deg;
+    }
+  }
+}
