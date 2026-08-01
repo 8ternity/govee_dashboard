@@ -1,11 +1,11 @@
 import { store } from '../storage/store.js';
 import { applyPresetWithRestore } from './presetApply.js';
 import { helixFetch, mergeTwitchConfig, TWITCH_OPTIONAL_SCOPES } from './twitch.js';
+import { t, DEFAULT_LOCALE } from '../i18n.js';
 
 const WS_URL = 'wss://eventsub.wss.twitch.tv/ws';
 const MAX_LOG = 80;
-const DEFAULT_ALERT_MESSAGE =
-  'EventSub déconnecté — clique sur « Tester la connexion » pour reconnecter et réinscrire les événements Twitch.';
+const DEFAULT_ALERT_MESSAGE = t(DEFAULT_LOCALE, 'twitch.debug.alertReconnect');
 const AUTH_ERROR_RE = /401|403|invalid|expired|unauthorized|token|scope/i;
 
 const debug = {
@@ -42,16 +42,29 @@ function closeWebSocketIntentionally() {
 }
 
 function pushLog(level, message, detail = {}) {
-  debug.logs.unshift({
+  let text = message;
+  let key = null;
+  let params = {};
+  if (message && typeof message === 'object' && message.key) {
+    key = message.key;
+    params = message.params || {};
+    text = t(DEFAULT_LOCALE, key, params);
+  }
+  const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     at: new Date().toISOString(),
     level,
-    message,
+    message: text,
     detail,
-  });
+  };
+  if (key) {
+    entry.key = key;
+    entry.params = params;
+  }
+  debug.logs.unshift(entry);
   if (debug.logs.length > MAX_LOG) debug.logs.length = MAX_LOG;
   const prefix = `[Twitch ${level}]`;
-  console.log(prefix, message, Object.keys(detail).length ? detail : '');
+  console.log(prefix, text, Object.keys(detail).length ? detail : '');
 }
 
 export function getTwitchDebug() {
@@ -152,7 +165,7 @@ async function subscribeAll(sessionId) {
   } else {
     pushLog(
       'warn',
-      'Sub Prime désactivé — scope user:read:chat absent du token (régénère le token avec ce scope)',
+      { key: 'twitch.debug.subPrimeDisabled', params: { scope: 'user:read:chat' } },
       { missingScope: 'user:read:chat', hint: TWITCH_OPTIONAL_SCOPES['user:read:chat'] },
     );
   }
@@ -161,11 +174,11 @@ async function subscribeAll(sessionId) {
     try {
       const sub = await createSubscription(sessionId, def.type, def.version, def.condition);
       subs.push({ type: def.type, status: sub?.status || 'created', id: sub?.id, optional: def.optional });
-      pushLog('info', `Abonnement EventSub OK: ${def.type}`, { id: sub?.id });
+      pushLog('info', { key: 'twitch.debug.subscribeOk', params: { type: def.type } }, { id: sub?.id });
     } catch (err) {
       subs.push({ type: def.type, status: 'error', error: err.message, optional: def.optional });
       const level = def.optional ? 'warn' : 'error';
-      pushLog(level, `Abonnement EventSub échoué: ${def.type}`, { error: err.message });
+      pushLog(level, { key: 'twitch.debug.subscribeFailed', params: { type: def.type } }, { error: err.message });
       if (!def.optional && isAuthRelatedError(err.message)) {
         setEventSubAlert('auth_error', DEFAULT_ALERT_MESSAGE);
       }
@@ -250,18 +263,18 @@ async function handleReaction(eventKey, meta) {
   const config = getConfig();
 
   if (!config.enabled) {
-    pushLog('warn', `Événement ignoré (désactivé): ${eventKey}`, meta);
+    pushLog('warn', { key: 'twitch.debug.eventIgnoredDisabled', params: { eventKey } }, meta);
     return { ok: false, reason: 'disabled' };
   }
 
   const presetId = config.mappings?.[eventKey];
   if (!presetId) {
-    pushLog('warn', `Événement sans preset: ${eventKey}`, meta);
+    pushLog('warn', { key: 'twitch.debug.eventNoPreset', params: { eventKey } }, meta);
     return { ok: false, reason: 'no_mapping' };
   }
 
   if (reactionBusy) {
-    pushLog('warn', `Preset ignoré (réaction en cours): ${eventKey}`, meta);
+    pushLog('warn', { key: 'twitch.debug.eventReactionBusy', params: { eventKey } }, meta);
     return { ok: false, reason: 'busy' };
   }
 
@@ -275,14 +288,14 @@ async function handleReaction(eventKey, meta) {
     const result = await applyPresetWithRestore(presetId, durationSec);
     if (!result.applied.length) {
       reactionBusy = false;
-      pushLog('error', `Preset sans lumière (${eventKey})`, {
+      pushLog('error', { key: 'twitch.debug.presetNoLights', params: { eventKey } }, {
         ...meta,
         presetId,
         presetName: preset?.name,
       });
       return { ok: false, reason: 'no_devices' };
     }
-    pushLog('action', `Preset appliqué (${eventKey})`, {
+    pushLog('action', { key: 'twitch.debug.presetApplied', params: { eventKey } }, {
       ...meta,
       presetId,
       presetName: preset?.name,
@@ -293,7 +306,7 @@ async function handleReaction(eventKey, meta) {
     return { ok: true, ...result };
   } catch (err) {
     reactionBusy = false;
-    pushLog('error', `Échec preset (${eventKey})`, { ...meta, error: err.message });
+    pushLog('error', { key: 'twitch.debug.presetFailed', params: { eventKey } }, { ...meta, error: err.message });
     return { ok: false, reason: 'apply_error', error: err.message };
   }
 }
@@ -306,7 +319,7 @@ async function onNotification(msg) {
     user: event.user_login || event.user_name || event.from_broadcaster_user_login,
   };
 
-  pushLog('event', `Notification reçue: ${subType}`, base);
+  pushLog('event', { key: 'twitch.debug.notification', params: { subType } }, base);
 
   if (subType === 'channel.follow') {
     await handleReaction('follow', { ...base, followedAt: event.followed_at });
@@ -355,7 +368,7 @@ async function handleWsMessage(raw) {
     debug.sessionId = msg.payload.session.id;
     debug.eventSubStatus = 'listening';
     debug.lastStartedAt = new Date().toISOString();
-    pushLog('info', 'Session EventSub ouverte', { sessionId: debug.sessionId });
+    pushLog('info', { key: 'twitch.debug.sessionOpened' }, { sessionId: debug.sessionId });
     try {
       await subscribeAll(debug.sessionId);
     } catch (err) {
@@ -368,7 +381,7 @@ async function handleWsMessage(raw) {
   } else if (type === 'session_keepalive') {
     /* noop */
   } else if (type === 'session_reconnect') {
-    pushLog('warn', 'Reconnexion EventSub demandée par Twitch');
+    pushLog('warn', { key: 'twitch.debug.reconnectRequested' });
     debug.reconnectCount += 1;
     const url = msg.payload.session.reconnect_url;
     clearReconnectTimer();
@@ -380,7 +393,7 @@ async function handleWsMessage(raw) {
   } else if (type === 'notification') {
     await onNotification(msg);
   } else if (type === 'revocation') {
-    pushLog('warn', 'Abonnement révoqué', msg.payload);
+    pushLog('warn', { key: 'twitch.debug.subscriptionRevoked' }, msg.payload);
     setEventSubAlert('revocation', DEFAULT_ALERT_MESSAGE);
   }
 }
@@ -405,14 +418,14 @@ function openWebSocket(url = WS_URL) {
     clearReconnectTimer();
     if (debug.eventSubStatus === 'listening' || debug.eventSubStatus === 'connected') {
       debug.eventSubStatus = 'reconnecting';
-      pushLog('warn', 'WebSocket fermé — reconnexion dans 5s');
+      pushLog('warn', { key: 'twitch.debug.wsClosed' });
       reconnectTimer = setTimeout(connect, 5000);
     }
   });
 
   ws.addEventListener('error', () => {
     debug.eventSubStatus = 'error';
-    pushLog('error', 'Erreur WebSocket EventSub');
+    pushLog('error', { key: 'twitch.debug.wsError' });
     setEventSubAlert('websocket_error', DEFAULT_ALERT_MESSAGE);
   });
 }
@@ -421,7 +434,7 @@ function connect() {
   const config = getConfig();
   if (!config.enabled || !config.accessToken || !config.clientId || !config.broadcasterId) {
     debug.eventSubStatus = 'stopped';
-    pushLog('info', 'EventSub non démarré (config incomplète ou désactivé)');
+    pushLog('info', { key: 'twitch.debug.notStarted' });
     return;
   }
 
@@ -429,7 +442,7 @@ function connect() {
   closeWebSocketIntentionally();
 
   debug.eventSubStatus = 'connecting';
-  pushLog('info', 'Connexion EventSub WebSocket…');
+  pushLog('info', { key: 'twitch.debug.connecting' });
   openWebSocket(WS_URL);
 }
 
@@ -444,7 +457,7 @@ export function stopTwitchListener() {
   debug.eventSubStatus = 'stopped';
   debug.sessionId = null;
   debug.subscriptions = [];
-  pushLog('info', 'EventSub arrêté');
+  pushLog('info', { key: 'twitch.debug.stopped' });
   setTimeout(() => { intentionalStop = false; }, 50);
 }
 
@@ -454,7 +467,7 @@ export function restartTwitchListener() {
 }
 
 export async function simulateTwitchEvent(eventKey, user = 'test_user') {
-  pushLog('info', `Simulation manuelle: ${eventKey}`, { user });
+  pushLog('info', { key: 'twitch.debug.simulated', params: { eventKey } }, { user });
   return handleReaction(eventKey, { user, simulated: true });
 }
 
@@ -463,6 +476,6 @@ export function startTwitchListener() {
   if (config.enabled) {
     connect();
   } else {
-    pushLog('info', 'EventSub en attente (réactions désactivées)');
+    pushLog('info', { key: 'twitch.debug.waitingDisabled' });
   }
 }

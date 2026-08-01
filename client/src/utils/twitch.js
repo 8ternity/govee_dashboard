@@ -9,7 +9,7 @@ export function needsEventSubReconnect(debug, enabled) {
     return { message: t('twitch.reconnectMessage'), reason: 'subscription_error' };
   }
   const hit = debug.logs?.some(
-    (l) => l.message?.includes('Abonnement révoqué') || l.message?.includes('Abonnement EventSub échoué'),
+    (l) => l.key === 'twitch.debug.subscriptionRevoked' || l.key === 'twitch.debug.subscribeFailed',
   );
   if (hit) return { message: t('twitch.reconnectMessage'), reason: 'log_hint' };
   return null;

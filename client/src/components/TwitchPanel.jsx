@@ -539,7 +539,7 @@ export default function TwitchPanel({ presets, onError }) {
                   {config.debug.logs.slice(0, 20).map((log) => (
                     <li key={log.id} className={cn('text-xs', logLevelClass[log.level] || 'text-muted-foreground')}>
                       <span className="text-muted-foreground/70 mr-1">{new Date(log.at).toLocaleTimeString(getLocaleTag())}</span>
-                      {log.message}
+                      {log.key ? t(log.key, log.params) : log.message}
                       {log.detail?.ips?.length > 0 && (
                         <span className="text-muted-foreground/70"> â€” {log.detail.ips.join(', ')}</span>
                       )}

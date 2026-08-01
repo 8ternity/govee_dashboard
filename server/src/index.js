@@ -14,6 +14,10 @@ import twitchRouter from './routes/twitch.js';
 import backupRouter from './routes/backup.js';
 import { errorMiddleware } from './errors.js';
 import { startTwitchListener } from './services/twitchListener.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.join(__dirname, '../../client/dist');
@@ -25,7 +29,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: pkg.version });
 });
 
 app.use('/api/devices', devicesRouter);

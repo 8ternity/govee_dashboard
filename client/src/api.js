@@ -14,6 +14,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  getHealth: () => request('/health'),
   scan: () => request('/devices/scan'),
   scanIp: (ip) =>
     request('/devices/scan-ip', { method: 'POST', body: JSON.stringify({ ip }) }),
