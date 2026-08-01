@@ -103,6 +103,25 @@ router.post('/', (req, res) => {
   res.status(201).json(entry);
 });
 
+router.post('/reorder', (req, res) => {
+  const { ids } = req.body;
+  const devices = store.getDevices();
+  if (
+    !Array.isArray(ids) ||
+    ids.length !== devices.length ||
+    new Set(ids).size !== ids.length
+  ) {
+    return sendError(req, res, 400, 'device.reorderInvalid');
+  }
+  const byId = new Map(devices.map((d) => [d.id, d]));
+  for (const id of ids) {
+    if (!byId.has(id)) return sendError(req, res, 400, 'device.reorderInvalid');
+  }
+  const reordered = ids.map((id) => byId.get(id));
+  store.saveDevices(reordered);
+  res.json(reordered);
+});
+
 router.patch('/:id', (req, res) => {
   const devices = store.getDevices();
   const idx = devices.findIndex((d) => d.id === req.params.id);

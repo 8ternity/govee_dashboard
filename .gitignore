@@ -3,4 +3,5 @@ dist/
 .env
 server/data/*.json
 !server/data/effects/
+server/data/_backup-*/
 *.log

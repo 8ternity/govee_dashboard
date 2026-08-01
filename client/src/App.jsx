@@ -93,6 +93,21 @@ function Dashboard({ onDeviceIdsChange }) {
       .catch(() => {});
   }, [onDeviceIdsChange, applySyncResult]);
 
+  const handleReorder = async (ids) => {
+    try {
+      const ordered = await api.reorderDevices(ids);
+      setDevices(ordered);
+      const orderedIds = ordered.map((x) => x.id);
+      onDeviceIdsChange((prev) =>
+        prev.length === orderedIds.length && prev.every((id, i) => id === orderedIds[i])
+          ? prev
+          : orderedIds
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   useEffect(() => { load({ showLoading: true }); }, [load]);
 
   useEffect(() => {
@@ -204,6 +219,7 @@ function Dashboard({ onDeviceIdsChange }) {
           loading={loadingDevices}
           onUpdate={load}
           onError={setError}
+          onReorder={handleReorder}
         />
 
         <TwitchPanel presets={presets} onError={setError} />

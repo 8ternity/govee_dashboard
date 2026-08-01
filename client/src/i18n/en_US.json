@@ -19,6 +19,7 @@
   "device.unlinkTitle": "Remove from link",
   "device.linkTitle": "Link this light",
   "device.rename": "Rename",
+  "device.drag": "Drag to reorder",
   "device.createPreset": "Create a preset",
   "device.linkSelectionWarning": "Select one or more other lights.",
   "device.linkSelectionWarningTitle": "Select one or more other lights to link",

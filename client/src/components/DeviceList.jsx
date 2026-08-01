@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { useT } from '../i18n';
 import DeviceCard from './DeviceCard';
@@ -6,8 +7,41 @@ import { Card } from './ui/card';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
 
-export default function DeviceList({ devices, presets, loading, onUpdate, onError }) {
+export default function DeviceList({ devices, presets, loading, onUpdate, onError, onReorder }) {
   const t = useT();
+  const [dragIndex, setDragIndex] = useState(null);
+  const [draftIds, setDraftIds] = useState(null);
+
+  useEffect(() => {
+    if (dragIndex === null) setDraftIds(null);
+  }, [devices, dragIndex]);
+
+  const handleDragStart = (index) => {
+    setDragIndex(index);
+    setDraftIds(devices.map((d) => d.id));
+  };
+
+  const handleDragEnter = (index) => {
+    if (dragIndex === null || index === dragIndex) return;
+    const current = draftIds || devices.map((d) => d.id);
+    const next = [...current];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(index, 0, moved);
+    setDraftIds(next);
+    setDragIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    const final = draftIds;
+    setDraftIds(null);
+    if (final) onReorder?.(final);
+  };
+
+  const orderedIds = draftIds || devices.map((d) => d.id);
+  const orderedDevices = orderedIds
+    .map((id) => devices.find((d) => d.id === id))
+    .filter(Boolean);
 
   return (
     <section className="space-y-4">
@@ -45,13 +79,21 @@ export default function DeviceList({ devices, presets, loading, onUpdate, onErro
       ) : (
         <>
           <div className="grid grid-cols-12 gap-4">
-            {devices.map((device) => (
-              <div key={device.id} className="col-span-12 md:col-span-6">
+            {orderedDevices.map((device, index) => (
+              <div
+                key={device.id}
+                className="col-span-12 md:col-span-6"
+                onDragEnter={() => handleDragEnter(index)}
+                onDragOver={(e) => e.preventDefault()}
+              >
                 <DeviceCard
                   device={device}
                   presets={presets}
                   onUpdate={onUpdate}
                   onError={onError}
+                  isDragging={dragIndex === index}
+                  onDragStart={() => handleDragStart(index)}
+                  onDragEnd={handleDragEnd}
                 />
               </div>
             ))}

@@ -19,6 +19,8 @@ export const api = {
     request('/devices/scan-ip', { method: 'POST', body: JSON.stringify({ ip }) }),
   getDevices: () => request('/devices'),
   syncIps: () => request('/devices/sync-ips', { method: 'POST' }),
+  reorderDevices: (ids) =>
+    request('/devices/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
   addDevice: (body) => request('/devices', { method: 'POST', body: JSON.stringify(body) }),
   updateDevice: (id, body) =>
     request(`/devices/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),

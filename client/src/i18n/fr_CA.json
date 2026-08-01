@@ -19,6 +19,7 @@
   "device.unlinkTitle": "Retirer de la liaison",
   "device.linkTitle": "Lier cette lumière",
   "device.rename": "Renommer",
+  "device.drag": "Glisser pour réordonner",
   "device.createPreset": "Créer un préréglage",
   "device.linkSelectionWarning": "Sélectionnez une ou plusieurs autres lumières.",
   "device.linkSelectionWarningTitle": "Sélectionné une ou plusieurs autres lumières à lié",

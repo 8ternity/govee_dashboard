@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link2, Unlink, Pencil, Check, Trash2, Loader2, X, AlertTriangle, Plus } from 'lucide-react';
+import { Link2, Unlink, Pencil, Check, Trash2, Loader2, X, AlertTriangle, Plus, GripVertical } from 'lucide-react';
 import { api } from '../api';
 import { useLink } from '../context/LinkContext';
 import { useT } from '../i18n';
@@ -35,7 +35,7 @@ function hexToRgb(hex) {
   };
 }
 
-export default function DeviceCard({ device, presets, onUpdate, onError }) {
+export default function DeviceCard({ device, presets, onUpdate, onError, isDragging, onDragStart, onDragEnd }) {
   const t = useT();
   const {
     linkedIds,
@@ -158,7 +158,8 @@ export default function DeviceCard({ device, presets, onUpdate, onError }) {
     <Card
       className={cn(
         'relative gap-4 transition-colors',
-        selected && 'border-primary/60'
+        selected && 'border-primary/60',
+        isDragging && 'opacity-40'
       )}
     >
       {presetToast && (
@@ -167,7 +168,22 @@ export default function DeviceCard({ device, presets, onUpdate, onError }) {
         </div>
       )}
 
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
+      <CardHeader className="flex flex-row items-start gap-3">
+        <button
+          type="button"
+          draggable
+          disabled={editing}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          className={cn(
+            'mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing',
+            editing && 'cursor-default opacity-30'
+          )}
+          title={t('device.drag')}
+          aria-label={t('device.drag')}
+        >
+          <GripVertical className="size-4" />
+        </button>
         {editing ? (
           <div className="flex items-center gap-2">
             <Input
@@ -185,7 +201,7 @@ export default function DeviceCard({ device, presets, onUpdate, onError }) {
           </div>
         ) : (
           <>
-            <div className="space-y-1">
+            <div className="flex-1 space-y-1">
               <CardTitle className="text-base">{device.label}</CardTitle>
               <p className="text-muted-foreground text-xs">
                 {device.sku} · {device.ip}
