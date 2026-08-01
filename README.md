@@ -112,6 +112,8 @@ npm run dev
 
 Open **http://localhost:3001** (the browser usually opens automatically).
 
+> **Next step:** once the dashboard is open, follow the [First-run configuration](#first-run-configuration) section below to enable LAN Control, scan your lights and set up Twitch.
+
 ### Option B — Manual install (Windows / macOS / Linux)
 
 **1. Get the code**
