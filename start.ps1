@@ -1,4 +1,4 @@
-# Demarre Govee Dashboard (http://localhost:3001)
+﻿# Demarre Govee Dashboard (http://localhost:3001)
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $ServerDir = Join-Path $Root "server"

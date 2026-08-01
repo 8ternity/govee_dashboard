@@ -1,4 +1,4 @@
-# Exporte server/data/ pour migration (inclut clés Twitch)
+﻿# Exporte server/data/ pour migration (inclut clés Twitch)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
 $DataDir = Join-Path $Root "server\data"

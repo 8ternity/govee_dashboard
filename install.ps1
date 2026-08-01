@@ -1,4 +1,4 @@
-# Govee Dashboard — installation des dépendances + build frontend
+﻿# Govee Dashboard — installation des dépendances + build frontend
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 
