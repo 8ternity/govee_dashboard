@@ -113,6 +113,7 @@ export default function DeviceCard({ device, presets, onUpdate, onError, isDragg
 
   const applyEffect = async (category, item) => {
     if (category === 'lighting') {
+      setLastCommands(null);
       await runControl({
         action: 'lighting',
         kelvin: item.kelvin,

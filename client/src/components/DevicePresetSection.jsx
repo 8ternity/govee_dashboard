@@ -67,17 +67,29 @@ function buildPresetName(state, effects) {
 }
 
 function resolveCommandsForState(state, effects) {
-  if (state.commands?.length) return state.commands;
   if (state.activeFx) {
     const dash = state.activeFx.indexOf('-');
     if (dash > 0) {
       const tab = state.activeFx.slice(0, dash);
       const id = state.activeFx.slice(dash + 1);
       const item = (effects?.[tab] || []).find((i) => i.id === id);
-      if (item?.commands?.length) return item.commands;
+      if (item) return item.commands?.length ? item.commands : null;
     }
   }
-  return null;
+  return state.commands?.length ? state.commands : null;
+}
+
+function resolveKelvinForState(state, effects) {
+  if (state.activeFx) {
+    const dash = state.activeFx.indexOf('-');
+    if (dash > 0) {
+      const tab = state.activeFx.slice(0, dash);
+      const id = state.activeFx.slice(dash + 1);
+      const item = (effects?.[tab] || []).find((i) => i.id === id);
+      if (item?.kelvin) return item.kelvin;
+    }
+  }
+  return state.kelvin ?? undefined;
 }
 
 function targetKey(targets) {
@@ -198,6 +210,7 @@ const DevicePresetSection = forwardRef(function DevicePresetSection(
           brightness: state.brightness,
           color: hexToRgb(state.color),
           activeFx: state.activeFx,
+          kelvin: resolveKelvinForState(state, effects),
           commands: resolveCommandsForState(state, effects),
         },
       });

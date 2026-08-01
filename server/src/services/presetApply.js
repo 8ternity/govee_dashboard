@@ -62,6 +62,8 @@ export async function applyPreset(preset) {
     }
     if (preset.state.commands?.length) {
       await govee.sendPtReal(ip, preset.state.commands);
+    } else if (preset.state.kelvin !== undefined) {
+      await govee.setColorTemperature(ip, preset.state.kelvin);
     } else {
       if (preset.state.color) {
         const { r, g, b } = preset.state.color;
