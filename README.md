@@ -80,6 +80,12 @@ See [DEPENDENCIES.md](DEPENDENCIES.md) for direct download links to every depend
 
 ### Option A — Quick install (Windows)
 
+**1. Download & extract**
+
+Download the latest release zip from the [Releases page](https://github.com/8ternity/govee_dashboard/releases) and unzip it to a location of your choice.
+
+**2. Run the installer**
+
 ```powershell
 cd path\to\govee_dashboard
 .\install.ps1
@@ -93,7 +99,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 The script installs server + client dependencies and builds the frontend.
 
-Start the server:
+**3. Start the server**
 
 ```powershell
 cd server
@@ -165,9 +171,11 @@ npm run dev
 0. **Enable LAN Control** — In the Govee Home mobile app, open each light's **Device Settings** and toggle **LAN Control** to **On** (required for the scan to detect it).
 1. **Scan your lights** — Dashboard → **Devices → Scan LAN**. Your Govee lights should appear. Turn them on first.
 2. **Twitch setup** — Dashboard → **Twitch**:
-   - Enter your Twitch **Client ID** and **OAuth access token** (see below)
+   - Get your **Client ID** from the [Twitch Developer Console](https://dev.twitch.tv/console/apps) and your **OAuth access token** from the [Twitch Token Generator](https://twitchtokengenerator.com/) (these links also appear in the Twitch panel)
    - Enter your **channel name**
    - Click **Test connection**, then **Save**
+
+> **HTTPS note:** Twitch OAuth authorization requires HTTPS. The token is generated on the external **twitchtokengenerator.com** (HTTPS), so **no local HTTPS/SSL setup is needed** — your dashboard stays on plain `http://localhost:3001` and the server only calls Twitch's APIs over HTTPS.
 3. **Map events** — in the Twitch panel, map each event (Follow, Cheer, Subs, Raid) to a device + preset and set the effect duration.
 4. **Verify** — click **Simulate Follow** to trigger the mapped effect manually.
 
@@ -181,6 +189,8 @@ Generate a token at [twitchtokengenerator.com](https://twitchtokengenerator.com/
 - `user:read:chat` (optional — enables Sub Prime detection)
 
 > ⚠️ The token can expire. If you see "Token invalid", regenerate it with the same scopes. Never share `server/data/twitch.json` — it contains your access token.
+
+> **HTTPS note:** Twitch OAuth authorization requires HTTPS. The token is generated externally on the **Twitch Token Generator** (HTTPS), so **no local HTTPS/SSL certificate is needed** — the dashboard runs on plain `http://localhost:3001` and the server calls Twitch's APIs over HTTPS. Never paste your token into a non-HTTPS site.
 
 ## Configuration (environment variables)
 

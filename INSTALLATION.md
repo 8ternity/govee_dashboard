@@ -26,12 +26,18 @@ Application locale pour contrôler des lumières Govee H16C0 (UDP LAN) + intégr
 
 ## Installation rapide (Windows)
 
+**1. Télécharger et décompresser**
+
+Télécharge le zip de la dernière version depuis la page [Releases](https://github.com/8ternity/govee_dashboard/releases) et décompresse-le à un endroit de ton choix.
+
+**2. Installer**
+
 ```powershell
 cd chemin\vers\govee_dashboard
 .\install.ps1
 ```
 
-Puis démarrer :
+**3. Démarrer**
 
 ```powershell
 cd server
@@ -79,6 +85,8 @@ npm start
 1. **Activer LAN Control** — dans l'app Govee Home, ouvre les **Paramètres** de chaque lumière et active **LAN Control** (sinon la lumière n'apparaîtra pas au scan).
 2. **Scanner les lumières** — Dashboard → **Lumières → Scan LAN**.
 3. **Twitch** — section **Twitch** : renseigne Client ID + token (voir plus bas), nom de chaîne, puis **Tester la connexion** → **Sauvegarder**.
+
+   > **HTTPS** : l'autorisation OAuth Twitch exige HTTPS. Le token est généré sur le site externe **twitchtokengenerator.com** (en HTTPS) — les liens vers le Dev Console et le Générateur sont déjà dans le panneau Twitch. **Aucun certificat SSL local n'est nécessaire** : le dashboard reste en `http://localhost:3001` et les appels Twitch se font en HTTPS côté serveur.
 4. **Mapper les événements** — associe chaque événement (Follow, Cheer, Subs, Raid) à un appareil + preset avec une durée d'effet.
 5. **Vérifier** — bouton **Simuler Follow** pour déclencher l'effet manuellement.
 
@@ -146,6 +154,7 @@ Génère `govee-dashboard-backup-AAAA-MM-JJ.zip` à copier sur l'autre machine, 
 - **IPs lumières** : si le réseau change, lance un **scan** dans le dashboard ou `POST /api/devices/sync-ips`.
 - **Presets** : liés aux IDs dans `devices.json`. Migre **devices + presets ensemble**. Si tu rescanne et recrées les lumières, recrée aussi les presets ou remappe Twitch.
 - **Ne partage pas** `twitch.json` publiquement (GitHub, Discord…) — contient ton access token.
+- **HTTPS** : l'auth OAuth Twitch exige HTTPS, mais elle passe par le générateur externe (twitchtokengenerator.com). Aucun certificat SSL chez toi : le dashboard reste en `http://localhost:3001`.
 
 ---
 
