@@ -39,6 +39,10 @@ cd chemin\vers\govee_dashboard
 
 **3. Démarrer**
 
+Double-clique sur **`start.bat`** (ou lance `.\start.ps1`) — il vérifie les dépendances, le build frontend et le port, puis lance le serveur.
+
+Ou manuellement :
+
 ```powershell
 cd server
 npm run dev

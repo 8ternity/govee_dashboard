@@ -101,6 +101,10 @@ The script installs server + client dependencies and builds the frontend.
 
 **3. Start the server**
 
+Double-click **`start.bat`** (or run `.\start.ps1`) — it checks the dependencies, the frontend build and the port, then launches the server.
+
+Or start it manually:
+
 ```powershell
 cd server
 npm run dev
