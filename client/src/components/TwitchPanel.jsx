@@ -162,7 +162,7 @@ export default function TwitchPanel({ presets, onError }) {
       const saved = await api.testTwitch();
       setConfig(saved);
     } catch (err) {
-      onError(err.message);
+      onError(err);
       try {
         setConfig(await loadConfig());
       } catch {

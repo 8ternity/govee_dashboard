@@ -43,10 +43,11 @@ export default function SettingsMenu({ devices, onAdded, onError }) {
       const data = await api.exportBackup();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const date = new Date().toISOString().slice(0, 10);
+      const appVersion = data?.appVersion ? `-v${data.appVersion}` : '';
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `govee-lightning-backup-${date}.json`;
+      a.download = `govee-lightning-backup${appVersion}-${date}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -66,15 +67,36 @@ export default function SettingsMenu({ devices, onAdded, onError }) {
     e.target.value = '';
     if (!file) return;
 
-    if (!confirm(t('settings.importConfirm'))) {
-      return;
-    }
-
     setBusy(true);
     setOpen(false);
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+      const importedVersion =
+        typeof data?.appVersion === 'string' && data.appVersion
+          ? data.appVersion
+          : null;
+      let warning = '';
+      if (importedVersion) {
+        try {
+          const health = await api.getHealth();
+          const current = health?.version;
+          if (current && current !== importedVersion) {
+            warning = t('settings.importVersionWarning', {
+              imported: importedVersion,
+              current,
+            });
+          }
+        } catch {
+          /* health indisponible — on ignore */
+        }
+      }
+      const message = warning
+        ? `${warning}\n\n${t('settings.importConfirm')}`
+        : t('settings.importConfirm');
+      if (!confirm(message)) {
+        return;
+      }
       await api.importBackup(data);
       window.location.reload();
     } catch (err) {

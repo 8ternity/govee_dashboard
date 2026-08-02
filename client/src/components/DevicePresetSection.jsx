@@ -40,6 +40,12 @@ function colorName(hex) {
   const name = t(key);
   return name === key ? null : name;
 }
+
+function effectDisplayName(item) {
+  const key = `fx.lighting.${item.id ?? ''}`;
+  const translated = t(key);
+  return translated === key ? item.name : translated;
+}
 function describeCurrent(activeFx, color, effects) {
   if (activeFx) {
     const dash = activeFx.indexOf('-');
@@ -50,7 +56,7 @@ function describeCurrent(activeFx, color, effects) {
       if (item) {
         return {
           kind: tab,
-          name: item.kelvin ? `${item.name} · ${item.kelvin}K` : item.name,
+          name: item.kelvin ? `${effectDisplayName(item)} · ${item.kelvin}K` : effectDisplayName(item),
           isEffect: true,
         };
       }
@@ -67,16 +73,15 @@ function buildPresetName(state, effects) {
 }
 
 function resolveCommandsForState(state, effects) {
-  if (state.activeFx) {
-    const dash = state.activeFx.indexOf('-');
-    if (dash > 0) {
-      const tab = state.activeFx.slice(0, dash);
-      const id = state.activeFx.slice(dash + 1);
-      const item = (effects?.[tab] || []).find((i) => i.id === id);
-      if (item) return item.commands?.length ? item.commands : null;
-    }
+  if (!state.activeFx) return null;
+  const dash = state.activeFx.indexOf('-');
+  if (dash > 0) {
+    const tab = state.activeFx.slice(0, dash);
+    const id = state.activeFx.slice(dash + 1);
+    const item = (effects?.[tab] || []).find((i) => i.id === id);
+    if (item) return item.commands?.length ? item.commands : null;
   }
-  return state.commands?.length ? state.commands : null;
+  return null;
 }
 
 function resolveKelvinForState(state, effects) {
@@ -237,8 +242,10 @@ const DevicePresetSection = forwardRef(function DevicePresetSection(
           '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
       }
       if (preset.state.activeFx) patch.activeFx = preset.state.activeFx;
+      else if (preset.state.color) patch.activeFx = null;
       if (Object.keys(patch).length) onApplyState(patch);
       if (preset.state.commands?.length) onCommandsChange?.(preset.state.commands);
+      else onCommandsChange?.(null);
       onPresetApplied?.(preset.name);
       setAppliedId(preset.id);
     } catch (err) {

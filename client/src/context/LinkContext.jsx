@@ -267,7 +267,7 @@ export function LinkProvider({ children, deviceIds = [] }) {
         const hex =
           '#' +
           [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
-        patchState(deviceId, { color: hex });
+        patchState(deviceId, { color: hex, activeFx: null });
       }
       if (payload.action === 'ptReal' && effectId) {
         patchState(deviceId, { activeFx: effectId });

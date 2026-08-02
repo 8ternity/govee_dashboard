@@ -2,12 +2,16 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import { store } from '../storage/store.js';
 import { sendError } from '../errors.js';
+
+const require = createRequire(import.meta.url);
 
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '../../data');
+const APP_VERSION = require('../../package.json').version;
 
 const FILE_MAP = {
   devices: 'devices.json',
@@ -36,6 +40,7 @@ function sanitizeTwitchForBackup(config) {
 router.get('/export', (_req, res) => {
   res.json({
     version: '1.0',
+    appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     devices: store.getDevices(),
     presets: store.getPresets(),
@@ -79,7 +84,23 @@ router.post('/import', (req, res) => {
   store.saveSettings(body.settings);
   store.saveGroups(body.groups);
 
-  res.json({ ok: true, backupDir: path.basename(backupDir) });
+  const importedVersion =
+    typeof body.appVersion === 'string' && body.appVersion ? body.appVersion : null;
+  const compatibility =
+    importedVersion && importedVersion !== APP_VERSION
+      ? {
+          imported: importedVersion,
+          current: APP_VERSION,
+          needsMigration: true,
+        }
+      : null;
+
+  res.json({
+    ok: true,
+    backupDir: path.basename(backupDir),
+    importedVersion,
+    compatibility,
+  });
 });
 
 export default router;

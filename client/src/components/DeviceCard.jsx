@@ -307,6 +307,7 @@ export default function DeviceCard({ device, presets, onUpdate, onError, isDragg
               value={state.color}
               disabled={loading}
               onChange={(e) => {
+                setLastCommands(null);
                 runControl({ action: 'color', color: hexToRgb(e.target.value) });
               }}
               className="h-8 w-10 cursor-pointer rounded-md border border-border bg-transparent p-0.5 disabled:cursor-not-allowed disabled:opacity-50"

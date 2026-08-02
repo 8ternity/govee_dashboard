@@ -67,10 +67,20 @@ async function tokenRequest(body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const key = body.grant_type === 'refresh_token'
-      ? 'twitch.oauthRefreshFailed'
-      : 'twitch.oauthExchangeFailed';
-    throw new AppError(key, { message: data.message || `${res.status} ${data.error || ''}` });
+    const rawMessage = data.message || `${res.status} ${data.error || ''}`;
+    const lowered = rawMessage.toLowerCase();
+    const key =
+      lowered.includes('invalid_client') ||
+      lowered.includes('client id') ||
+      lowered.includes('invalid client') ||
+      lowered.includes('invalid oauth_client_credentials')
+        ? body.grant_type === 'refresh_token'
+          ? 'twitch.oauthInvalidClientRefresh'
+          : 'twitch.oauthInvalidClientExchange'
+        : body.grant_type === 'refresh_token'
+          ? 'twitch.oauthRefreshFailed'
+          : 'twitch.oauthExchangeFailed';
+    throw new AppError(key, { message: rawMessage });
   }
   return data;
 }

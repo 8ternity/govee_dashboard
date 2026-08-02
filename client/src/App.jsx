@@ -11,6 +11,12 @@ import { Button } from './components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert';
 import { cn } from '@/lib/utils';
 
+const INVALID_CLIENT_KEYS = [
+  'twitch.oauthInvalidClientRefresh',
+  'twitch.oauthInvalidClientExchange',
+];
+const DEV_CONSOLE = 'https://dev.twitch.tv/console/apps';
+
 function Dashboard({ onDeviceIdsChange }) {
   const t = useT();
   const [devices, setDevices] = useState([]);
@@ -18,6 +24,7 @@ function Dashboard({ onDeviceIdsChange }) {
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [error, setError] = useState(null);
   const [errorKind, setErrorKind] = useState('destructive');
+  const [errorKey, setErrorKey] = useState(null);
   const { groupLinked, linkedIds, handleHeaderLink } = useLink();
   const [showLinkBanner, setShowLinkBanner] = useState(false);
   const [twitchAlert, setTwitchAlert] = useState(null);
@@ -25,6 +32,14 @@ function Dashboard({ onDeviceIdsChange }) {
 
   const closeError = useCallback(() => {
     setError(null);
+    setErrorKind('destructive');
+    setErrorKey(null);
+  }, []);
+
+  const showError = useCallback((err) => {
+    const message = err?.message ?? err;
+    setError(message);
+    setErrorKey(err?.key ?? null);
     setErrorKind('destructive');
   }, []);
 
@@ -133,7 +148,7 @@ function Dashboard({ onDeviceIdsChange }) {
       const data = await api.getTwitch();
       setTwitchAlert(needsEventSubReconnect(data?.debug, data?.enabled));
     } catch (err) {
-      setError(err.message);
+      showError(err);
     } finally {
       setReauthing(false);
     }
@@ -176,7 +191,19 @@ function Dashboard({ onDeviceIdsChange }) {
           <Alert variant={errorKind}>
             <AlertTriangle />
             <AlertDescription className="flex items-center justify-between gap-3">
-              <span>{error}</span>
+              <span className="flex flex-col gap-1">
+                <span>{error}</span>
+                {INVALID_CLIENT_KEYS.includes(errorKey) && (
+                  <a
+                    href={DEV_CONSOLE}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {t('app.eventSubReauthConsole')} →
+                  </a>
+                )}
+              </span>
               <Button
                 variant="ghost"
                 size="icon"
@@ -222,7 +249,7 @@ function Dashboard({ onDeviceIdsChange }) {
           onReorder={handleReorder}
         />
 
-        <TwitchPanel presets={presets} onError={setError} />
+        <TwitchPanel presets={presets} onError={showError} />
 
         <AppFooter />
       </main>

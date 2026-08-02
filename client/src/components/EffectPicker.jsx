@@ -17,6 +17,15 @@ const TABS = [
 const MORE_PAGE_SIZE = 12;
 
 function EffectChip({ item, active, loading, isLighting, tabId, onApply }) {
+  const t = useT();
+  const localized =
+    isLighting && item?.id
+      ? (() => {
+          const key = `fx.lighting.${item.id}`;
+          const translated = t(key);
+          return translated === key ? item.name : translated;
+        })()
+      : item.name;
   return (
     <Button
       type="button"
@@ -36,7 +45,7 @@ function EffectChip({ item, active, loading, isLighting, tabId, onApply }) {
           aria-hidden
         />
       )}
-      <span className="truncate">{item.name}</span>
+      <span className="truncate">{localized}</span>
       {item.kelvin && (
         <span className="text-muted-foreground text-[10px]">{item.kelvin}K</span>
       )}
