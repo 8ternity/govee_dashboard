@@ -22,7 +22,6 @@ const FILE_MAP = {
 };
 
 const TWITCH_SENSITIVE_FIELDS = [
-  'clientId',
   'clientSecret',
   'accessToken',
   'refreshToken',

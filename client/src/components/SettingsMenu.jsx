@@ -91,6 +91,11 @@ export default function SettingsMenu({ devices, onAdded, onError }) {
           /* health indisponible — on ignore */
         }
       }
+      const twitchInBackup = data?.twitch;
+      if (twitchInBackup?.clientId && !twitchInBackup.clientSecret) {
+        const extra = t('settings.importSecretNotice');
+        warning = warning ? `${warning}\n\n${extra}` : extra;
+      }
       const message = warning
         ? `${warning}\n\n${t('settings.importConfirm')}`
         : t('settings.importConfirm');

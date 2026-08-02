@@ -402,6 +402,24 @@ export default function TwitchPanel({ presets, onError }) {
                         placeholder={config.hasClientSecret ? t('twitch.secretKeepPlaceholder') : t('twitch.secretPlaceholder')}
                       />
                     </div>
+                    {config.clientId && !config.hasClientSecret && (
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Alert variant="warning">
+                          <AlertTriangle />
+                          <AlertDescription className="text-xs">
+                            {t('twitch.secretRegenerateNotice')}{' '}
+                            <a
+                              href={DEV_CONSOLE}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary font-medium hover:underline"
+                            >
+                              {t('twitch.devConsole')} ↗
+                            </a>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
                     <div className="space-y-1.5">
                       <Label>{t('twitch.channelName')}</Label>
                       <Input
