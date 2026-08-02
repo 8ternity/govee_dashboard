@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.1] — 2026-08-01
+
+### Fixed
+- **EventSub listener now auto-enables when connecting Twitch** — the OAuth callback (`/api/twitch/callback`) sets `enabled: true` on a successful connection. Previously, a fresh install would connect Twitch successfully but the listener stayed disabled (`EventSub not started — config incomplete or disabled`), because the `enabled` flag was never set during OAuth and the "Test connection" button does not enable it.
+
+---
+
 ## [1.1.0] — 2026-08-01
 
 ### Added
