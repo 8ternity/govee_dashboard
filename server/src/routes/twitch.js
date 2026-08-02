@@ -100,6 +100,7 @@ router.get('/callback', async (req, res) => {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || config.refreshToken,
       tokenExpiresAt: Date.now() + ((Number(tokens.expires_in) || 14400) - 60) * 1000,
+      enabled: true,
       lastError: null,
     });
     const result = await validateTwitchConnection(next);
