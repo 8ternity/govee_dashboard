@@ -1,4 +1,5 @@
 import { AppError } from '../errors.js';
+import { store } from '../storage/store.js';
 
 export const TWITCH_EVENTS = [
   { id: 'follow', label: 'Follow', eventSub: 'channel.follow' },
@@ -23,7 +24,10 @@ export function getTwitchScopeWarnings(scopes = []) {
 
 export const DEFAULT_TWITCH = {
   clientId: '',
+  clientSecret: '',
   accessToken: '',
+  refreshToken: '',
+  tokenExpiresAt: null,
   channelName: '',
   broadcasterId: '',
   moderatorUserId: '',
@@ -35,7 +39,78 @@ export const DEFAULT_TWITCH = {
   mappings: Object.fromEntries(TWITCH_EVENTS.map((e) => [e.id, ''])),
 };
 
-export async function helixFetch(config, path, { method = 'GET', body, query } = {}) {
+export const TWITCH_OAUTH_SCOPES = [
+  'channel:read:subscriptions',
+  'bits:read',
+  'moderator:read:followers',
+  'user:read:chat',
+];
+
+const TWITCH_OAUTH_AUTHORIZE = 'https://id.twitch.tv/oauth2/authorize';
+const TWITCH_OAUTH_TOKEN = 'https://id.twitch.tv/oauth2/token';
+
+export function buildAuthorizeUrl(clientId, redirectUri) {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: TWITCH_OAUTH_SCOPES.join(' '),
+  });
+  return `${TWITCH_OAUTH_AUTHORIZE}?${params.toString()}`;
+}
+
+async function tokenRequest(body) {
+  const res = await fetch(TWITCH_OAUTH_TOKEN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const key = body.grant_type === 'refresh_token'
+      ? 'twitch.oauthRefreshFailed'
+      : 'twitch.oauthExchangeFailed';
+    throw new AppError(key, { message: data.message || `${res.status} ${data.error || ''}` });
+  }
+  return data;
+}
+
+export async function exchangeCode(clientId, clientSecret, code, redirectUri) {
+  return tokenRequest({
+    client_id: clientId,
+    client_secret: clientSecret,
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+  });
+}
+
+export async function refreshAccessToken(clientId, clientSecret, refreshToken) {
+  return tokenRequest({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
+  });
+}
+
+export async function ensureValidConfig(rawConfig) {
+  const config = mergeTwitchConfig(rawConfig ?? store.getTwitch());
+  if (!config.clientSecret || !config.refreshToken) return config;
+  if (config.tokenExpiresAt && Date.now() < config.tokenExpiresAt) return config;
+  const tokens = await refreshAccessToken(config.clientId, config.clientSecret, config.refreshToken);
+  const next = mergeTwitchConfig({
+    ...config,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token || config.refreshToken,
+    tokenExpiresAt: Date.now() + ((Number(tokens.expires_in) || 14400) - 60) * 1000,
+  });
+  store.saveTwitch(next);
+  return next;
+}
+
+export async function helixFetch(rawConfig, path, { method = 'GET', body, query } = {}) {
+  const config = await ensureValidConfig(rawConfig);
   const url = new URL(`https://api.twitch.tv/helix${path}`);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
@@ -87,11 +162,13 @@ export function mergeTwitchConfig(raw) {
 
 export function sanitizeTwitchForClient(config) {
   const c = mergeTwitchConfig(config);
-  const { clientSecret: _ignored, ...rest } = c;
+  const { clientSecret: _cs, refreshToken: _rt, ...rest } = c;
   return {
     ...rest,
     accessToken: c.accessToken ? `••••${c.accessToken.slice(-4)}` : '',
     hasAccessToken: Boolean(c.accessToken),
+    hasClientSecret: Boolean(c.clientSecret),
+    hasRefreshToken: Boolean(c.refreshToken),
   };
 }
 

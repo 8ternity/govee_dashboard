@@ -4,4 +4,6 @@ dist/
 server/data/*.json
 !server/data/effects/
 server/data/_backup-*/
+server/data/*.crt
+server/data/*.key
 *.log

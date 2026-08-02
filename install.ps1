@@ -38,4 +38,4 @@ if (-not (Test-Path $dataDir)) {
 
 Write-Host "`n=== Terminé ===" -ForegroundColor Green
 Write-Host "Lancer:  cd server; npm run dev"
-Write-Host "Ouvrir:  http://localhost:3001`n"
+Write-Host "Ouvrir:  https://localhost:3001`n"

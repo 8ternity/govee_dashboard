@@ -1,4 +1,4 @@
-﻿# Demarre Govee Dashboard (http://localhost:3001)
+﻿# Demarre Govee Dashboard (https://localhost:3001)
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $ServerDir = Join-Path $Root "server"
@@ -17,12 +17,12 @@ if (-not (Test-Path $DistDir)) {
 $port = netstat -ano 2>$null | Select-String ":3001.*LISTENING"
 if ($port) {
     Write-Host "Port 3001 deja utilise - app peut-etre deja demarree." -ForegroundColor Yellow
-    Write-Host "http://localhost:3001"
+    Write-Host "https://localhost:3001"
     exit 0
 }
 
 Write-Host "Demarrage Govee Dashboard..." -ForegroundColor Cyan
-Write-Host "http://localhost:3001"
+Write-Host "https://localhost:3001"
 Write-Host ""
 
 Set-Location $ServerDir

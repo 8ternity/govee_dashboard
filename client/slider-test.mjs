@@ -1,12 +1,13 @@
 import puppeteer from 'puppeteer-core';
 
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const URL = 'http://localhost:3001/';
+const URL = 'https://localhost:3001/';
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: 'new',
   args: ['--no-sandbox', '--disable-gpu'],
+  ignoreHTTPSErrors: true,
 });
 
 const page = await browser.newPage();
@@ -14,7 +15,7 @@ const apiCalls = [];
 page.on('request', (req) => {
   const u = req.url();
   if (u.includes('/api/') && req.method() === 'POST') {
-    apiCalls.push(`${req.method()} ${u.replace('http://localhost:3001', '')} :: ${req.postData()}`);
+    apiCalls.push(`${req.method()} ${u.replace('https://localhost:3001', '')} :: ${req.postData()}`);
   }
 });
 page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));

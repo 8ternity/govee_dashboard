@@ -18,18 +18,19 @@ Control **Govee H16C0** lights over your local network (UDP LAN) and react autom
   - Sub Tier 1 / 2 / 3
   - Sub Prime (requires optional `user:read:chat` scope)
   - Incoming raids
+- **Twitch OAuth** — connect directly with the **Connect with Twitch** button: no external token generator, the access token is created and **refreshed automatically** (Client ID + Client Secret required)
 - **Event mapping** — map each Twitch event to a device + preset with a custom effect duration
-- **Backup** — one-click export/import of all local data
+- **Backup** — one-click export/import of all local data (secrets are stripped from exports)
 
 ## How it works
 
 ```
 Twitch (EventSub WebSocket)  ──►  Twitch listener (server)  ──►  Preset/effect engine  ──►  Govee lights (UDP LAN)
                                     │
-Browser dashboard  ◄──────────  Express API (localhost:3001)
+Browser dashboard  ◄──────────  Express API (https://localhost:3001)
 ```
 
-The server talks to your lights directly via UDP on your local network, then serves the web dashboard at `http://localhost:3001`.
+The server talks to your lights directly via UDP on your local network, then serves the web dashboard at `https://localhost:3001` (HTTPS with an auto-generated self-signed certificate — required for Twitch OAuth).
 
 ## Supported devices
 
@@ -48,7 +49,8 @@ The communication protocol (LAN UDP) follows Govee's official LAN API, so other 
 | Frontend | React 19, Vite 6, Tailwind CSS 4, Radix UI |
 | Backend | Node.js, Express 4 (ESM) |
 | Devices | Govee H16C0 — UDP LAN protocol |
-| Twitch | Helix API + EventSub (WebSocket) |
+| Twitch | OAuth 2.0 (auto-refresh) + Helix API + EventSub (WebSocket) |
+| HTTPS | Self-signed certificate (auto-generated via `selfsigned`) |
 
 ## Requirements
 
@@ -67,7 +69,7 @@ See [DEPENDENCIES.md](DEPENDENCIES.md) for direct download links to every depend
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| 3001 | TCP/HTTP | Dashboard + API |
+| 3001 | TCP/HTTPS | Dashboard + API |
 | 4001 | UDP | Outgoing device scan |
 | 4002 | UDP | Scan responses (listen) |
 | 4003 | UDP | Light control |
@@ -110,7 +112,9 @@ cd server
 npm run dev
 ```
 
-Open **http://localhost:3001** (the browser usually opens automatically).
+Open **https://localhost:3001** (the browser usually opens automatically).
+
+> The dashboard runs over **HTTPS** with an auto-generated self-signed certificate. Your browser will warn that the connection is not trusted — this is expected; proceed anyway (or install the certificate, see [HTTPS & the self-signed certificate](#https--the-self-signed-certificate)).
 
 > **Next step:** once the dashboard is open, follow the [First-run configuration](#first-run-configuration) section below to enable LAN Control, scan your lights and set up Twitch.
 
@@ -158,7 +162,7 @@ npm start
 
 ### Developer mode (hot-reload UI)
 
-Run the API server in one terminal and the Vite dev server in another. The Vite dev server proxies `/api` requests to the backend.
+Run the API server in one terminal and the Vite dev server in another. The Vite dev server proxies `/api` requests to the HTTPS backend (`secure: false`, since the backend uses the self-signed certificate).
 
 ```bash
 # Terminal 1 — API server
@@ -176,33 +180,51 @@ npm run dev
 
 0. **Enable LAN Control** — In the Govee Home mobile app, open each light's **Device Settings** and toggle **LAN Control** to **On** (required for the scan to detect it).
 1. **Scan your lights** — Dashboard → **Devices → Scan LAN**. Your Govee lights should appear. Turn them on first.
-2. **Twitch setup** — Dashboard → **Twitch**:
-   - Get your **Client ID** from the [Twitch Developer Console](https://dev.twitch.tv/console/apps) and your **OAuth access token** from the [Twitch Token Generator](https://twitchtokengenerator.com/) (these links also appear in the Twitch panel)
-   - Enter your **channel name**
-   - Click **Test connection**, then **Save**
+2. **Create a Twitch application** — in the [Twitch Developer Console](https://dev.twitch.tv/console/apps) click **Register Your Application**:
+   - **Name**: any name, e.g. `Govee Dashboard`
+   - **OAuth Redirect URLs**: add **`https://localhost:3001/api/twitch/callback`** (exactly — `https`, no trailing slash)
+   - **Category / Type**: choose **Chat Bot** (or *Application Integration*)
+   - Click **Create**, then copy the **Client ID** and click **New Secret** to reveal the **Client Secret**
+3. **Connect Twitch in the dashboard** — Dashboard → **Twitch**:
+   - **Step 1 — Application credentials**: paste your **Client ID**, **Client Secret** and **channel name**, then click **Save credentials**
+   - **Step 2 — Connect to Twitch**: click **Connect with Twitch** → authorize on Twitch → the dashboard receives a token + refresh token
+   - Click **Test connection** to confirm
+4. **Map events** — in the Twitch panel, map each event (Follow, Cheer, Subs, Raid) to a device + preset and set the effect duration.
+5. **Verify** — click **Simulate Follow** to trigger the mapped effect manually.
 
-> **HTTPS note:** Twitch OAuth authorization requires HTTPS. The token is generated on the external **twitchtokengenerator.com** (HTTPS), so **no local HTTPS/SSL setup is needed** — your dashboard stays on plain `http://localhost:3001` and the server only calls Twitch's APIs over HTTPS.
-3. **Map events** — in the Twitch panel, map each event (Follow, Cheer, Subs, Raid) to a device + preset and set the effect duration.
-4. **Verify** — click **Simulate Follow** to trigger the mapped effect manually.
+## Twitch OAuth & the access token
 
-## Twitch access token
+The dashboard now handles OAuth entirely on its own — **no external token generator needed**.
 
-Generate a token at [twitchtokengenerator.com](https://twitchtokengenerator.com/) with the following scopes:
+- The **Connect with Twitch** button starts the OAuth authorization-code flow (`/api/twitch/auth` → Twitch → `/api/twitch/callback`).
+- The server stores the **access token + refresh token** in `server/data/twitch.json` and **refreshes the token automatically** before each API call when it expires (~4 h).
+- The token is created with these scopes:
+  - `channel:read:subscriptions` (required)
+  - `bits:read` (required)
+  - `moderator:read:followers` (required)
+  - `user:read:chat` (optional — enables Sub Prime detection)
+- Use **Disconnect Twitch** to remove the refresh token (the app will then require a new connection).
 
-- `channel:read:subscriptions` (required)
-- `bits:read` (required)
-- `moderator:read:followers` (required)
-- `user:read:chat` (optional — enables Sub Prime detection)
+> ⚠️ **Never share or commit `server/data/twitch.json`** — it contains your access token, refresh token and client secret. It is gitignored, and backup exports strip all secrets.
 
-> ⚠️ The token can expire. If you see "Token invalid", regenerate it with the same scopes. Never share `server/data/twitch.json` — it contains your access token.
+### HTTPS & the self-signed certificate
 
-> **HTTPS note:** Twitch OAuth authorization requires HTTPS. The token is generated externally on the **Twitch Token Generator** (HTTPS), so **no local HTTPS/SSL certificate is needed** — the dashboard runs on plain `http://localhost:3001` and the server calls Twitch's APIs over HTTPS. Never paste your token into a non-HTTPS site.
+Twitch OAuth requires HTTPS, so the dashboard is served over **`https://localhost:3001`** with a self-signed certificate generated automatically on first start (`server/data/server.crt` + `server.key`, SAN: `localhost` + `127.0.0.1`, valid 10 years).
+
+- Your browser will show a security warning on first visit — this is expected for a self-signed certificate. Click **Advanced → Proceed**.
+- To silence the warning permanently, install the certificate once (as administrator):
+
+```powershell
+certutil -addstore Root "C:\path\to\govee_dashboard\server\data\server.crt"
+```
+
+> If you see `redirect_mismatch` when connecting Twitch, the redirect URL in your Twitch app settings must match **exactly** `https://localhost:3001/api/twitch/callback`.
 
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PORT` | `3001` | HTTP port for the dashboard/API |
+| `PORT` | `3001` | HTTPS port for the dashboard/API |
 | `NO_BROWSER` | unset | Set to `1` to prevent the server from auto-opening a browser |
 
 Example:
@@ -226,13 +248,14 @@ All data lives in `server/data/` (JSON files):
 | `devices.json` | Lights (IP, MAC, labels) |
 | `groups.json` | Light groups |
 | `presets.json` | Light presets |
-| `twitch.json` | Twitch credentials + event mappings (**gitignored, keep private**) |
+| `twitch.json` | Twitch Client ID/Secret, access + refresh token, event mappings (**gitignored, keep private**) |
 | `settings.json` | App settings incl. language |
 | `effects/H16C0.json` | Effect catalog (shipped with the project) |
+| `server.crt` / `server.key` | Auto-generated self-signed certificate (**gitignored**) |
 
 ## Backup & migration
 
-Export everything (including Twitch credentials) from the old machine:
+Export all data from the old machine (Twitch **secrets are stripped** from the archive):
 
 ```powershell
 .\scripts\export-data.ps1
@@ -248,7 +271,9 @@ This creates `govee-dashboard-backup-YYYY-MM-DD.zip`. Import it on the new machi
 
 - Presets are tied to device IDs. Migrate `devices.json` + `presets.json` together.
 - If your LAN changes, re-scan devices (`POST /api/devices/sync-ips`) and remap Twitch events if presets were recreated.
-- Regenerate the Twitch token if it expired (see above).
+- Backup archives and `scripts/export-data.ps1` **strip Twitch secrets**. On the new machine, reconnect Twitch (**Connect with Twitch**), or copy `server/data/twitch.json` directly if you want to keep the same credentials.
+
+> 💡 When moving machines, the redirect URI stays the same (`https://localhost:3001/api/twitch/callback`) as long as you run the server on port 3001.
 
 ## Troubleshooting
 
@@ -258,7 +283,10 @@ This creates `govee-dashboard-backup-YYYY-MM-DD.zip`. Import it on the new machi
 | `EADDRINUSE :3001` | A server is already running: `netstat -ano \| findstr :3001`, then `taskkill /PID <pid> /F` |
 | Light shows offline | Check power and that the PC/lights are on the same Wi-Fi; re-run the scan |
 | Twitch connected but no effect | Check the preset mapping (⚠ marker) and use **Simulate Follow** |
-| EventSub stopped | Test connection → Save → restart the server |
+| EventSub stopped | Check the debug logs; **Test connection → Save**, then restart the server |
+| `redirect_mismatch` on connect | The redirect URL in your Twitch app must be **exactly** `https://localhost:3001/api/twitch/callback` |
+| `Client ID and OAuth token do not match` | The token belongs to another Twitch app — click **Connect with Twitch** to get a fresh token for the current Client ID |
+| Browser warning "connection not trusted" | Expected with the self-signed certificate — proceed, or install it (see [HTTPS & the self-signed certificate](#https--the-self-signed-certificate)) |
 | Script blocked by PowerShell | Use `powershell -ExecutionPolicy Bypass -File .\install.ps1` |
 
 ## Project structure
@@ -273,10 +301,12 @@ govee_dashboard/
 │   │   ├── routes/         # Express API routes
 │   │   ├── services/       # Govee UDP, Twitch, presets, backup
 │   │   ├── storage/        # JSON persistence
-│   │   └── index.js        # Server entry point
-│   └── data/               # Local data (gitignored: twitch.json)
+│   │   ├── ssl.js          # Self-signed certificate generation
+│   │   └── index.js        # Server entry point (HTTPS)
+│   └── data/               # Local data (gitignored: twitch.json, *.crt, *.key)
 ├── scripts/                # Backup/restore PowerShell scripts
 ├── install.ps1             # Windows one-shot installer
+├── CHANGELOG.md            # Release notes
 ├── INSTALLATION.md         # French install guide
 └── DEPENDENCIES.md         # Dependency download links
 ```
@@ -293,7 +323,11 @@ govee_dashboard/
 | CRUD | `/api/effects` | Effects |
 | GET/PATCH | `/api/settings` | Settings (incl. language) |
 | CRUD | `/api/twitch` | Twitch config + event mappings |
-| GET/POST | `/api/backup/export` · `/import` | Backup / restore |
+| GET | `/api/twitch/auth` | Start Twitch OAuth (redirects to Twitch) |
+| GET | `/api/twitch/callback` | OAuth callback (token exchange) |
+| DELETE | `/api/twitch/oauth` | Disconnect OAuth (clear refresh token) |
+| GET/POST | `/api/twitch/followers` · `/simulate` | Recent followers / test a Twitch event |
+| GET/POST | `/api/backup/export` · `/import` | Backup / restore (secrets stripped) |
 
 ## License
 

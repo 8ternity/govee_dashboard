@@ -54,6 +54,7 @@ export const api = {
   getTwitchDebug: () => request('/twitch/debug'),
   clearTwitchDebug: () => request('/twitch/debug', { method: 'DELETE' }),
   getTwitchFollowers: (first = 25) => request(`/twitch/followers?first=${first}`),
+  deleteTwitchOAuth: () => request('/twitch/oauth', { method: 'DELETE' }),
   simulateTwitchEvent: (eventKey, user) =>
     request('/twitch/simulate', {
       method: 'POST',

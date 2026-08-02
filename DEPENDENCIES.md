@@ -17,7 +17,8 @@ Complete list of third-party software required to run **Govee Lighting Interacti
 |-----------|---------|----------|
 | Git | Clone the repository | https://git-scm.com/downloads |
 | Google Chrome | Auto-open the dashboard in your default browser detection | https://www.google.com/chrome/ |
-| Twitch Token Generator | Generate the OAuth token required by the Twitch integration | https://twitchtokengenerator.com/ |
+| Twitch account + Developer Console app | OAuth credentials (Client ID / Client Secret) for the Twitch integration — see [INSTALLATION.md](INSTALLATION.md) | https://dev.twitch.tv/console/apps |
 | Govee Home (mobile app) | Initial light setup / firmware updates | iOS: https://apps.apple.com/app/govee-home/id1395696823 · Android: https://play.google.com/store/apps/details?id=com.govee.home |
 
-> Chrome is only used for auto-opening the dashboard URL. Any browser can access `http://localhost:3001` manually.
+> No external token generator is needed — the dashboard obtains and refreshes the Twitch token itself via OAuth.
+> Chrome is only used for auto-opening the dashboard URL. Any browser can access `https://localhost:3001` manually (self-signed certificate warning expected).

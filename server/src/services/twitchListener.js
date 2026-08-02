@@ -1,7 +1,15 @@
 import { store } from '../storage/store.js';
 import { applyPresetWithRestore } from './presetApply.js';
 import { helixFetch, mergeTwitchConfig, TWITCH_OPTIONAL_SCOPES } from './twitch.js';
+import { AppError } from '../errors.js';
 import { t, DEFAULT_LOCALE } from '../i18n.js';
+
+function readableError(err) {
+  if (err instanceof AppError) {
+    return t(DEFAULT_LOCALE, err.errorKey, err.errorParams);
+  }
+  return err?.message || String(err);
+}
 
 const WS_URL = 'wss://eventsub.wss.twitch.tv/ws';
 const MAX_LOG = 80;
@@ -127,7 +135,7 @@ async function subscribeAll(sessionId) {
   const { broadcasterId, moderatorUserId } = config;
   if (!broadcasterId || !moderatorUserId) {
     const err = new Error('broadcasterId ou moderatorUserId manquant — relance « Tester la connexion ».');
-    setEventSubAlert('missing_ids', err.message);
+    setEventSubAlert('missing_ids', readableError(err));
     throw err;
   }
 
@@ -176,10 +184,10 @@ async function subscribeAll(sessionId) {
       subs.push({ type: def.type, status: sub?.status || 'created', id: sub?.id, optional: def.optional });
       pushLog('info', { key: 'twitch.debug.subscribeOk', params: { type: def.type } }, { id: sub?.id });
     } catch (err) {
-      subs.push({ type: def.type, status: 'error', error: err.message, optional: def.optional });
+      subs.push({ type: def.type, status: 'error', error: readableError(err), optional: def.optional });
       const level = def.optional ? 'warn' : 'error';
-      pushLog(level, { key: 'twitch.debug.subscribeFailed', params: { type: def.type } }, { error: err.message });
-      if (!def.optional && isAuthRelatedError(err.message)) {
+      pushLog(level, { key: 'twitch.debug.subscribeFailed', params: { type: def.type } }, { error: readableError(err) });
+      if (!def.optional && isAuthRelatedError(readableError(err))) {
         setEventSubAlert('auth_error', DEFAULT_ALERT_MESSAGE);
       }
     }
@@ -234,7 +242,7 @@ function scheduleSubscribeFallback(userId, tier, meta) {
   const timer = setTimeout(() => {
     pendingSubFallbacks.delete(userId);
     if (wasSubRecentlyHandled(userId)) return;
-    handleSubscribeEvent(userId, tier, false, meta).catch((err) => pushLog('error', err.message));
+    handleSubscribeEvent(userId, tier, false, meta).catch((err) => pushLog('error', readableError(err)));
   }, SUB_FALLBACK_MS);
   pendingSubFallbacks.set(userId, timer);
 }
@@ -306,8 +314,8 @@ async function handleReaction(eventKey, meta) {
     return { ok: true, ...result };
   } catch (err) {
     reactionBusy = false;
-    pushLog('error', { key: 'twitch.debug.presetFailed', params: { eventKey } }, { ...meta, error: err.message });
-    return { ok: false, reason: 'apply_error', error: err.message };
+    pushLog('error', { key: 'twitch.debug.presetFailed', params: { eventKey } }, { ...meta, error: readableError(err) });
+    return { ok: false, reason: 'apply_error', error: readableError(err) };
   }
 }
 
@@ -373,9 +381,9 @@ async function handleWsMessage(raw) {
       await subscribeAll(debug.sessionId);
     } catch (err) {
       debug.eventSubStatus = 'error';
-      pushLog('error', err.message);
+      pushLog('error', readableError(err));
       if (!debug.eventSubAlert) {
-        setEventSubAlert('subscribe_failed', err.message);
+        setEventSubAlert('subscribe_failed', readableError(err));
       }
     }
   } else if (type === 'session_keepalive') {
@@ -409,7 +417,7 @@ function openWebSocket(url = WS_URL) {
   });
 
   ws.addEventListener('message', (raw) => {
-    handleWsMessage(raw).catch((err) => pushLog('error', err.message));
+    handleWsMessage(raw).catch((err) => pushLog('error', readableError(err)));
   });
 
   ws.addEventListener('close', () => {

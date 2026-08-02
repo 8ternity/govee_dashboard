@@ -17,13 +17,29 @@ const FILE_MAP = {
   groups: 'groups.json',
 };
 
+const TWITCH_SENSITIVE_FIELDS = [
+  'clientId',
+  'clientSecret',
+  'accessToken',
+  'refreshToken',
+  'tokenExpiresAt',
+];
+
+function sanitizeTwitchForBackup(config) {
+  const out = { ...(config || {}) };
+  for (const key of TWITCH_SENSITIVE_FIELDS) {
+    delete out[key];
+  }
+  return out;
+}
+
 router.get('/export', (_req, res) => {
   res.json({
     version: '1.0',
     exportedAt: new Date().toISOString(),
     devices: store.getDevices(),
     presets: store.getPresets(),
-    twitch: store.getTwitch(),
+    twitch: sanitizeTwitchForBackup(store.getTwitch()),
     settings: store.getSettings(),
     groups: store.getGroups(),
   });
@@ -47,7 +63,13 @@ router.post('/import', (req, res) => {
   for (const fileName of Object.values(FILE_MAP)) {
     const src = path.join(DATA_DIR, fileName);
     if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(backupDir, fileName));
+      const dest = path.join(backupDir, fileName);
+      if (fileName === 'twitch.json') {
+        const content = JSON.parse(fs.readFileSync(src, 'utf-8'));
+        fs.writeFileSync(dest, JSON.stringify(sanitizeTwitchForBackup(content), null, 2), 'utf-8');
+      } else {
+        fs.copyFileSync(src, dest);
+      }
     }
   }
 

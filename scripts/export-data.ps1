@@ -1,4 +1,4 @@
-﻿# Exporte server/data/ pour migration (inclut clés Twitch)
+﻿# Exporte server/data/ pour migration (secrets Twitch retires du backup)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
 $DataDir = Join-Path $Root "server\data"
@@ -10,12 +10,32 @@ if (-not (Test-Path $DataDir)) {
 
 $Date = Get-Date -Format "yyyy-MM-dd"
 $OutZip = Join-Path $Root "govee-dashboard-backup-$Date.zip"
+$Staging = Join-Path $env:TEMP ("govee-backup-" + [guid]::NewGuid().ToString("N"))
 
-if (Test-Path $OutZip) { Remove-Item $OutZip -Force }
+try {
+    New-Item -ItemType Directory -Path $Staging -Force | Out-Null
 
-Compress-Archive -Path "$DataDir\*" -DestinationPath $OutZip -Force
+    Get-ChildItem -Path $DataDir -File | Where-Object { $_.Name -ne "twitch.json" } | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Staging $_.Name) -Force
+    }
 
-Write-Host "Backup créé:" -ForegroundColor Green
-Write-Host $OutZip
-Write-Host "`nContient: twitch.json, devices, presets, settings..."
-Write-Host "Sur l'autre PC: .\scripts\import-data.ps1 -ZipFile <chemin>`n"
+    $TwitchPath = Join-Path $DataDir "twitch.json"
+    if (Test-Path $TwitchPath) {
+        $Twitch = Get-Content $TwitchPath -Raw | ConvertFrom-Json
+        $Sensitive = @("clientId", "clientSecret", "accessToken", "refreshToken", "tokenExpiresAt")
+        foreach ($k in $Sensitive) {
+            if ($Twitch.PSObject.Properties.Name -contains $k) {
+                $Twitch.PSObject.Properties.Remove($k)
+            }
+        }
+        $Twitch | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $Staging "twitch.json") -Encoding UTF8
+    }
+
+    if (Test-Path $OutZip) { Remove-Item $OutZip -Force }
+    Compress-Archive -Path "$Staging\*" -DestinationPath $OutZip -Force
+
+    Write-Host "Backup cree (secrets Twitch retires):" -ForegroundColor Green
+    Write-Host $OutZip
+} finally {
+    Remove-Item -LiteralPath $Staging -Recurse -Force -ErrorAction SilentlyContinue
+}

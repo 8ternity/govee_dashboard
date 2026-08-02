@@ -3,8 +3,10 @@ import cors from 'cors';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import https from 'https';
 import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
+import { getHttpsCredentials, CERT_PATH } from './ssl.js';
 import devicesRouter from './routes/devices.js';
 import groupsRouter from './routes/groups.js';
 import presetsRouter from './routes/presets.js';
@@ -47,10 +49,14 @@ app.get('*', (_req, res) => {
 
 app.use(errorMiddleware);
 
-app.listen(PORT, () => {
-  console.log(`Govee Lighting Interaction for Twitch → http://localhost:${PORT}`);
+const credentials = getHttpsCredentials();
+console.log(`Certificat SSL: ${CERT_PATH}`);
+
+https.createServer(credentials, app).listen(PORT, () => {
+  console.log(`Govee Lighting Interaction for Twitch → https://localhost:${PORT}`);
+  console.log(`Certificat auto-signé non reconnu par le navigateur ? Exécute une fois en admin : certutil -addstore Root "${CERT_PATH}"`);
   startTwitchListener();
-  openBrowser(`http://localhost:${PORT}`);
+  openBrowser(`https://localhost:${PORT}`);
 });
 
 function findChrome() {

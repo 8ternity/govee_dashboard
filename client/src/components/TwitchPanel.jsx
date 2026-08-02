@@ -45,7 +45,6 @@ const TWITCH_EVENTS = [
 ];
 
 const DEV_CONSOLE = 'https://dev.twitch.tv/console/apps';
-const TOKEN_GENERATOR = 'https://twitchtokengenerator.com/';
 
 const logLevelClass = {
   info: 'text-muted-foreground',
@@ -66,6 +65,9 @@ export default function TwitchPanel({ presets, onError }) {
   const [simulatingRaid, setSimulatingRaid] = useState(false);
   const [mappingSaving, setMappingSaving] = useState(null);
   const [debugSnapshot, setDebugSnapshot] = useState(null);
+  const [oauthNotice, setOauthNotice] = useState(null);
+  const [savedNotice, setSavedNotice] = useState(null);
+  const [credsSavedNotice, setCredsSavedNotice] = useState(null);
 
   const loadConfig = useCallback(async () => {
     const data = await api.getTwitch();
@@ -76,6 +78,23 @@ export default function TwitchPanel({ presets, onError }) {
   useEffect(() => {
     loadConfig().catch((e) => onError(e.message));
   }, [loadConfig, onError]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('twitch');
+    if (status === 'connected') {
+      setOauthNotice(t('twitch.oauthConnected'));
+      setTimeout(() => setOauthNotice(null), 3000);
+      loadConfig().catch(() => {});
+    } else if (status && status.startsWith('error:')) {
+      onError(decodeURIComponent(status.slice('error:'.length)));
+    }
+    if (status) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('twitch');
+      window.history.replaceState({}, '', url);
+    }
+  }, [t, onError, loadConfig]);
 
   useEffect(() => {
     const pollDebug = () => {
@@ -111,7 +130,7 @@ export default function TwitchPanel({ presets, onError }) {
     try {
       const saved = await api.updateTwitch({
         clientId: config.clientId,
-        accessToken: config.accessToken,
+        clientSecret: config.clientSecret,
         channelName: config.channelName,
         enabled: config.enabled,
         reactionDurationSec: config.reactionDurationSec,
@@ -119,6 +138,8 @@ export default function TwitchPanel({ presets, onError }) {
         mappings: config.mappings,
       });
       setConfig(saved);
+      setSavedNotice(t('twitch.saved'));
+      setTimeout(() => setSavedNotice(null), 3000);
     } catch (err) {
       onError(err.message);
     } finally {
@@ -131,7 +152,7 @@ export default function TwitchPanel({ presets, onError }) {
     try {
       await api.updateTwitch({
         clientId: config.clientId,
-        accessToken: config.accessToken,
+        clientSecret: config.clientSecret,
         channelName: config.channelName,
         mappings: config.mappings,
         reactionDurationSec: config.reactionDurationSec,
@@ -149,6 +170,48 @@ export default function TwitchPanel({ presets, onError }) {
       }
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleSaveCredentials = async () => {
+    setSaving(true);
+    try {
+      const saved = await api.updateTwitch({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        channelName: config.channelName,
+      });
+      setConfig(saved);
+      setCredsSavedNotice(t('twitch.saved'));
+      setTimeout(() => setCredsSavedNotice(null), 3000);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOAuthConnect = async () => {
+    try {
+      await api.updateTwitch({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        channelName: config.channelName,
+      });
+    } catch (err) {
+      onError(err.message);
+      return;
+    }
+    window.location.href = '/api/twitch/auth';
+  };
+
+  const handleOAuthDisconnect = async () => {
+    try {
+      const saved = await api.deleteTwitchOAuth();
+      setConfig(saved);
+      setOauthNotice(null);
+    } catch (err) {
+      onError(err.message);
     }
   };
 
@@ -313,40 +376,81 @@ export default function TwitchPanel({ presets, onError }) {
                 </Alert>
               )}
 
-              <div className="flex flex-wrap gap-4">
-                <a href={DEV_CONSOLE} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 text-sm hover:underline">
-                  {t('twitch.devConsole')} <ExternalLink className="size-3.5" />
-                </a>
-                <a href={TOKEN_GENERATOR} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 text-sm hover:underline">
-                  {t('twitch.generateToken')} <ExternalLink className="size-3.5" />
-                </a>
-              </div>
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold">{t('twitch.stepCredentials')}</h4>
+                    <a href={DEV_CONSOLE} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 text-xs hover:underline">
+                      {t('twitch.devConsole')} <ExternalLink className="size-3" />
+                    </a>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>{t('twitch.clientId')}</Label>
+                      <Input
+                        value={config.clientId}
+                        onChange={(e) => update({ clientId: e.target.value })}
+                        placeholder={t('twitch.clientIdPlaceholder')}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t('twitch.clientSecret')}</Label>
+                      <Input
+                        type="password"
+                        value={config.clientSecret || ''}
+                        onChange={(e) => update({ clientSecret: e.target.value })}
+                        placeholder={config.hasClientSecret ? t('twitch.secretKeepPlaceholder') : t('twitch.secretPlaceholder')}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t('twitch.channelName')}</Label>
+                      <Input
+                        value={config.channelName}
+                        onChange={(e) => update({ channelName: e.target.value })}
+                        placeholder={t('twitch.channelPlaceholder')}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button variant="secondary" onClick={handleSaveCredentials} disabled={saving}>
+                      {saving ? <Loader2 className="animate-spin" /> : null}
+                      {saving ? t('twitch.saving') : t('twitch.saveCredentials')}
+                    </Button>
+                    {credsSavedNotice && (
+                      <span className="text-success text-sm">{credsSavedNotice}</span>
+                    )}
+                  </div>
+                </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('twitch.clientId')}</Label>
-                  <Input
-                    value={config.clientId}
-                    onChange={(e) => update({ clientId: e.target.value })}
-                    placeholder={t('twitch.clientIdPlaceholder')}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('twitch.accessToken')}</Label>
-                  <Input
-                    type="password"
-                    value={config.accessToken}
-                    onChange={(e) => update({ accessToken: e.target.value })}
-                    placeholder={config.hasAccessToken ? t('twitch.tokenKeepPlaceholder') : t('twitch.tokenPlaceholder')}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('twitch.channelName')}</Label>
-                  <Input
-                    value={config.channelName}
-                    onChange={(e) => update({ channelName: e.target.value })}
-                    placeholder={t('twitch.channelPlaceholder')}
-                  />
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold">{t('twitch.stepConnect')}</h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={handleOAuthConnect}>
+                      {t('twitch.oauthConnect')}
+                    </Button>
+                    {config.hasRefreshToken && (
+                      <Button variant="secondary" onClick={handleOAuthDisconnect}>
+                        {t('twitch.oauthDisconnect')}
+                      </Button>
+                    )}
+                  </div>
+                  {config.hasRefreshToken ? (
+                    <p className="text-muted-foreground text-xs">
+                      {t('twitch.oauthActive')}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">
+                      {t('twitch.oauthHint')}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-xs">
+                    {t('twitch.oauthRedirectHint', { uri: config.oauthRedirectUri })}
+                  </p>
+                  {oauthNotice && (
+                    <Alert variant="success">
+                      <AlertDescription>{oauthNotice}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               </div>
 

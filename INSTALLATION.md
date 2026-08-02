@@ -20,7 +20,7 @@ Application locale pour contrôler des lumières Govee H16C0 (UDP LAN) + intégr
 - UDP 4002 — écoute scan
 - UDP 4003 — contrôle
 
-**Port app** : `3001` (HTTP)
+**Port app** : `3001` (HTTPS — l'auth OAuth Twitch l'exige)
 
 ---
 
@@ -48,7 +48,9 @@ cd server
 npm run dev
 ```
 
-Ouvrir : **http://localhost:3001**
+Ouvrir : **https://localhost:3001**
+
+> Le dashboard tourne en **HTTPS** avec un certificat auto-signé généré automatiquement au premier démarrage. Le navigateur affichera un avertissement de sécurité (« connexion non fiable ») — c'est **normal**, clique sur **Avancé → Continuer** (ou installe le certificat, voir [HTTPS & certificat auto-signé](#https--certificat-auto-signé)).
 
 ---
 
@@ -88,11 +90,47 @@ npm start
 
 1. **Activer LAN Control** — dans l'app Govee Home, ouvre les **Paramètres** de chaque lumière et active **LAN Control** (sinon la lumière n'apparaîtra pas au scan).
 2. **Scanner les lumières** — Dashboard → **Lumières → Scan LAN**.
-3. **Twitch** — section **Twitch** : renseigne Client ID + token (voir plus bas), nom de chaîne, puis **Tester la connexion** → **Sauvegarder**.
+3. **Créer une application Twitch** (voir [Créer une application Twitch](#créer-une-application-twitch)) et récupérer le **Client ID** + **Client Secret**.
+4. **Connecter Twitch dans le dashboard** — section **Twitch** :
+   - **Étape 1 — Identifiants de l'application** : colle ton **Client ID**, ton **Client Secret** et ton **nom de chaîne**, puis clique **Sauvegarder les identifiants**.
+   - **Étape 2 — Connexion à Twitch** : clique **Connecter avec Twitch** → autorise dans la fenêtre Twitch → le dashboard reçoit le **token + refresh token** (renouvellement automatique, plus de générateur externe).
+   - Clique **Tester la connexion** pour confirmer.
+5. **Mapper les événements** — associe chaque événement (Follow, Cheer, Subs, Raid) à un appareil + preset avec une durée d'effet.
+6. **Vérifier** — bouton **Simuler Follow** pour déclencher l'effet manuellement.
 
-   > **HTTPS** : l'autorisation OAuth Twitch exige HTTPS. Le token est généré sur le site externe **twitchtokengenerator.com** (en HTTPS) — les liens vers le Dev Console et le Générateur sont déjà dans le panneau Twitch. **Aucun certificat SSL local n'est nécessaire** : le dashboard reste en `http://localhost:3001` et les appels Twitch se font en HTTPS côté serveur.
-4. **Mapper les événements** — associe chaque événement (Follow, Cheer, Subs, Raid) à un appareil + preset avec une durée d'effet.
-5. **Vérifier** — bouton **Simuler Follow** pour déclencher l'effet manuellement.
+---
+
+## Créer une application Twitch
+
+Le dashboard utilise l'**OAuth officiel de Twitch** — il obtient et renouvelle lui-même le token. Il faut d'abord créer une application dans la console développeur Twitch.
+
+1. Va sur la **[Console développeur Twitch](https://dev.twitch.tv/console/apps)** et connecte-toi avec ton compte (le compte du **modérateur de la chaîne**).
+2. Clique **Register Your Application** (ou **Créer votre application**) et remplis :
+   - **Name** : un nom libre, par ex. `Govee Dashboard`.
+   - **OAuth Redirect URLs** : ajoute **exactement** :
+     ```
+     https://localhost:3001/api/twitch/callback
+     ```
+     (`https`, pas `http`, sans `/` final — sinon erreur `redirect_mismatch`).
+   - **Category / Type** : choisis **Chat Bot** (ou *Application Integration*).
+3. Clique **Create**. Copie le **Client ID**.
+4. Clique **New Secret** (ou **Nouveau secret**) pour afficher le **Client Secret** et copie-le.
+5. Renseigne ces deux valeurs dans le dashboard (section Twitch → Étape 1), puis clique **Connecter avec Twitch**.
+
+> 💡 Changer un de ces réglages sur Twitch (URI de redirection, etc.) peut mettre à jour le Client Secret — réactualise-le dans le dashboard si besoin.
+
+### HTTPS & certificat auto-signé
+
+L'OAuth Twitch **exige HTTPS** : c'est pourquoi le serveur sert le dashboard en `https://localhost:3001` avec un certificat auto-signé généré automatiquement au premier démarrage (`server/data/server.crt` + `server.key`, valide 10 ans, pour `localhost` et `127.0.0.1`).
+
+- Au premier accès, le navigateur affiche un avertissement : clique **Avancé → Continuer vers localhost**.
+- Pour supprimer définitivement l'avertissement, installe le certificat une fois en administrateur :
+
+```powershell
+certutil -addstore Root "C:\chemin\vers\govee_dashboard\server\data\server.crt"
+```
+
+> Si tu vois `redirect_mismatch` en cliquant « Connecter avec Twitch », c'est que l'URI enregistrée sur Twitch ne correspond pas **exactement** à `https://localhost:3001/api/twitch/callback`.
 
 ---
 
@@ -112,7 +150,8 @@ Le protocole suit l'API LAN officielle de Govee, donc d'autres modèles compatib
 
 | Fichier | Contenu | Migration |
 |---------|---------|-----------|
-| `twitch.json` | Client ID, token OAuth, mappings événements | **Oui — copier** |
+| `twitch.json` | Client ID, Client Secret, access + refresh token, mappings événements | **Oui — copier** |
+| `server.crt` / `server.key` | Certificat auto-signé HTTPS | Re-généré automatiquement (ne pas copier) |
 | `devices.json` | Lumières (IP, MAC, labels) | Copier — rescan si IPs changent |
 | `presets.json` | Presets lumières | Copier avec `devices.json` |
 | `settings.json` | État LINK, cache, langue active (`lang`) | Copier |
@@ -125,7 +164,7 @@ Le protocole suit l'API LAN officielle de Govee, donc d'autres modèles compatib
 
 ## Migrer vers un autre PC
 
-### Oui — les clés Twitch sont exportables
+### Les clés Twitch sont exportables
 
 Les credentials sont dans `server/data/twitch.json` (fichier local, gitignored).
 
@@ -134,7 +173,7 @@ Les credentials sont dans `server/data/twitch.json` (fichier local, gitignored).
 1. Sur l'ancien PC, copie le dossier `server/data/` entier.
 2. Colle-le dans `server/data/` sur le nouveau PC (remplace les fichiers).
 3. Installe le projet (`install.ps1` ou manuel).
-4. Lance le serveur → section Twitch → **Tester la connexion**.
+4. Lance le serveur → section Twitch → **Tester la connexion** (le token se renouvelle automatiquement avec le refresh token).
 
 **Script d'export (ancien PC) :**
 
@@ -148,17 +187,20 @@ Génère `govee-dashboard-backup-AAAA-MM-JJ.zip` à copier sur l'autre machine, 
 .\scripts\import-data.ps1 -ZipFile chemin\vers\backup.zip
 ```
 
+> ⚠️ **Les archives de sauvegarde ne contiennent plus les secrets Twitch** (`clientId`, `clientSecret`, `accessToken`, `refreshToken` sont retirés). Après import, reconnecte Twitch via **Connecter avec Twitch**, ou copie `server/data/twitch.json` directement.
+
 ### Points d'attention
 
-- **Token Twitch** : peut expirer. Si « Token invalide », régénère sur [twitchtokengenerator.com](https://twitchtokengenerator.com/) avec les scopes :
+- **Token Twitch** : renouvelé **automatiquement** par le refresh token (plus de générateur externe). Scopes demandés :
   - `channel:read:subscriptions`
   - `bits:read`
   - `moderator:read:followers`
   - `user:read:chat` (optionnel — Sub Prime)
+- **Si le refresh échoue** : clique **Déconnecter Twitch** puis **Connecter avec Twitch** pour recréer un token.
 - **IPs lumières** : si le réseau change, lance un **scan** dans le dashboard ou `POST /api/devices/sync-ips`.
 - **Presets** : liés aux IDs dans `devices.json`. Migre **devices + presets ensemble**. Si tu rescanne et recrées les lumières, recrée aussi les presets ou remappe Twitch.
-- **Ne partage pas** `twitch.json` publiquement (GitHub, Discord…) — contient ton access token.
-- **HTTPS** : l'auth OAuth Twitch exige HTTPS, mais elle passe par le générateur externe (twitchtokengenerator.com). Aucun certificat SSL chez toi : le dashboard reste en `http://localhost:3001`.
+- **Ne partage pas** `twitch.json` publiquement (GitHub, Discord…) — contient ton access token, ton refresh token et ton Client Secret.
+- **HTTPS** : sur le nouveau PC, la même URI `https://localhost:3001/api/twitch/callback` reste valable si le serveur tourne sur le port 3001.
 
 ---
 
@@ -170,7 +212,10 @@ Génère `govee-dashboard-backup-AAAA-MM-JJ.zip` à copier sur l'autre machine, 
 | `EADDRINUSE :3001` | Un serveur tourne déjà : `netstat -ano \| findstr :3001` puis `taskkill /PID xxx /F` |
 | Lumière hors ligne | Vérifie alimentation, même Wi-Fi, relance scan |
 | Twitch connecté mais pas d'effet | Vérifie preset (⚠ dans mapping), bouton **Simuler Follow** |
-| EventSub arrêté | Tester connexion → Sauvegarder → redémarrer serveur |
+| EventSub arrêté | Regarde les logs debug ; **Tester connexion → Sauvegarder**, puis redémarre le serveur |
+| `redirect_mismatch` au connect | L'URI enregistrée sur Twitch doit être **exactement** `https://localhost:3001/api/twitch/callback` |
+| `Client ID and OAuth token do not match` | Le token appartient à une autre app Twitch — clique **Connecter avec Twitch** pour en créer un nouveau |
+| Avertissement navigateur « connexion non fiable » | Normal avec le certificat auto-signé — continue, ou installe le certificat (voir [HTTPS & certificat auto-signé](#https--certificat-auto-signé)) |
 
 ---
 
@@ -185,6 +230,6 @@ npm run dev
 cd client
 npm run build
 
-# Santé API
-curl http://localhost:3001/api/health
+# Santé API (certificat auto-signé → utiliser -k)
+curl -k https://localhost:3001/api/health
 ```

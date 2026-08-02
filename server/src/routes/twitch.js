@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import { store } from '../storage/store.js';
 import { getLocale, t } from '../i18n.js';
-import { respondError, errorPayload } from '../errors.js';
+import { AppError, respondError, errorPayload } from '../errors.js';
 import {
   mergeTwitchConfig,
   sanitizeTwitchForClient,
   validateTwitchConnection,
   fetchRecentFollowers,
   getTwitchScopeWarnings,
+  buildAuthorizeUrl,
+  exchangeCode,
+  ensureValidConfig,
 } from '../services/twitch.js';
 import { validatePresetTargets } from '../services/presetApply.js';
 import {
@@ -18,6 +21,13 @@ import {
 } from '../services/twitchListener.js';
 
 const router = Router();
+
+const OAUTH_CALLBACK_PATH = '/api/twitch/callback';
+
+function getOAuthRedirectUri() {
+  const port = process.env.PORT || 3001;
+  return `https://localhost:${port}${OAUTH_CALLBACK_PATH}`;
+}
 
 function keepSecret(incoming, existing) {
   if (!incoming || incoming.startsWith('••••')) return existing;
@@ -36,6 +46,7 @@ function withDebug(config, locale) {
   }
   return {
     ...sanitizeTwitchForClient(config),
+    oauthRedirectUri: getOAuthRedirectUri(),
     scopeWarnings: getTwitchScopeWarnings(config.scopes || []),
     debug: getTwitchDebug(),
     mappingHealth,
@@ -68,6 +79,56 @@ router.get('/followers', async (req, res) => {
   }
 });
 
+router.get('/auth', (req, res) => {
+  const config = mergeTwitchConfig(store.getTwitch());
+  if (!config.clientId || !config.clientSecret) {
+    return respondError(req, res, new AppError('twitch.oauthNeedCredentials'), 400);
+  }
+  res.redirect(buildAuthorizeUrl(config.clientId, getOAuthRedirectUri()));
+});
+
+router.get('/callback', async (req, res) => {
+  const { code, error, error_description } = req.query;
+  if (error || !code) {
+    return res.redirect(`/?twitch=error:${encodeURIComponent(error_description || error || 'denied')}`);
+  }
+  try {
+    const config = mergeTwitchConfig(store.getTwitch());
+    const tokens = await exchangeCode(config.clientId, config.clientSecret, code, getOAuthRedirectUri());
+    let next = mergeTwitchConfig({
+      ...config,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || config.refreshToken,
+      tokenExpiresAt: Date.now() + ((Number(tokens.expires_in) || 14400) - 60) * 1000,
+      lastError: null,
+    });
+    const result = await validateTwitchConnection(next);
+    next = mergeTwitchConfig({ ...next, ...result });
+    store.saveTwitch(next);
+    restartTwitchListener();
+    res.redirect('/?twitch=connected');
+  } catch (err) {
+    const msg = err instanceof AppError ? errorPayload(req, err).error : err?.message || 'OAuth failed';
+    res.redirect(`/?twitch=error:${encodeURIComponent(msg)}`);
+  }
+});
+
+router.delete('/oauth', (_req, res) => {
+  const config = mergeTwitchConfig(store.getTwitch());
+  const next = mergeTwitchConfig({
+    ...config,
+    refreshToken: '',
+    tokenExpiresAt: null,
+    connectionStatus: 'disconnected',
+    scopes: [],
+    scopeWarnings: [],
+    lastError: null,
+  });
+  store.saveTwitch(next);
+  restartTwitchListener();
+  res.json(withDebug(next, getLocale(_req)));
+});
+
 router.post('/simulate', async (req, res) => {
   const { eventKey = 'follow', user = 'debug_user' } = req.body || {};
   try {
@@ -84,6 +145,7 @@ router.patch('/', (req, res) => {
     ...current,
     ...req.body,
     accessToken: keepSecret(req.body.accessToken, current.accessToken),
+    clientSecret: keepSecret(req.body.clientSecret, current.clientSecret),
     mappings: { ...current.mappings, ...(req.body.mappings || {}) },
   });
   store.saveTwitch(next);
@@ -105,9 +167,10 @@ router.patch('/', (req, res) => {
 });
 
 router.post('/test', async (req, res) => {
-  const config = mergeTwitchConfig(store.getTwitch());
   const locale = getLocale(req);
+  let config = mergeTwitchConfig(store.getTwitch());
   try {
+    config = await ensureValidConfig(store.getTwitch());
     const result = await validateTwitchConnection(config);
     const next = mergeTwitchConfig({ ...config, ...result });
     store.saveTwitch(next);
